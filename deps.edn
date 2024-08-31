@@ -1,0 +1,13 @@
+{:aliases
+ {:dev {:extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                     org.clojure/tools.namespace {:mvn/version "1.5.0"}}
+        :extra-paths ["test" "dev"]}
+  :test {:extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}
+         :extra-paths ["test"]
+         :main-opts ["-m" "kaocha.runner"]}
+  :cider-nrepl {:extra-deps {cider/cider-nrepl {:mvn/version "0.49.0"}
+                             nrepl/nrepl {:mvn/version "1.2.0"}
+                             org.clojure/tools.namespace {:mvn/version "1.5.0"}}
+                :main-opts ["-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"]}
+  :nrepl {:extra-deps {nrepl/nrepl {:mvn/version "1.2.0"}} :main-opts ["-m" "nrepl.cmdline"]}}
+ :paths ["src"]}
