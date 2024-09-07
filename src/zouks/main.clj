@@ -33,7 +33,8 @@
     \{ (add-token-and-advance data (make-token :left-brace "{"))
     \} (add-token-and-advance data (make-token :right-brace "}"))
     \" (lex-string data)
-    \: (add-token-and-advance data (make-token :colon ":"))))
+    \: (add-token-and-advance data (make-token :colon ":"))
+    \, (add-token-and-advance data (make-token :comma ","))))
 
 (defn skip-whitespace
   [{:keys [index chars] :as data}]
@@ -79,11 +80,19 @@
           (= tok-type :string) (recur tokens :kv mappings)
           :else (error "Expected kv pair or closing brace")))
 
-      (= state :kv)
-      (if (= [:string :colon :string] (map :token-type (take 3 tokens)))
-        (let [[k _ v] (map :value (take 3 tokens))]
-          (recur (drop 3 tokens) :end-of-object (conj mappings [k v])))
-        (error "Expected kv pair"))
+      (= state :kv) (if (= [:string :colon :string]
+                           (map :token-type (take 3 tokens)))
+                      (let [[k _ v] (map :value (take 3 tokens))]
+                        (recur (drop 3 tokens)
+                               :next-mapping-or-end-of-object
+                               (conj mappings [k v])))
+                      (error "Expected kv pair"))
+      (= state :next-mapping-or-end-of-object)
+      (let [tok-type (:token-type (first tokens))]
+        (cond
+          (= tok-type :right-brace) (recur tokens :end-of-object mappings)
+          (= tok-type :comma) (recur (next tokens) :kv mappings)
+          :else (error "Expected kv pair or closing brace")))
 
       (= state :end-of-object)
       (if (= :right-brace (:token-type (first tokens)))

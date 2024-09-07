@@ -39,11 +39,18 @@
   (testing "A lexer should generate a string token when a string is encountered"
     (is (= {:token-type :string :value "This is a string"}
            (first (sut/lex "\"This is a string\"")))))
-  (testing "A lexer should generate a :color token when \\: is encountered"
+  (testing "A lexer should generate a :colon token when \\: is encountered"
     (is-first-lexeme :colon ":"))
   (testing "A lexer should be able to lex a key value pair"
     (has-token-types [:left-brace :string :colon :string :right-brace :eof]
-                     "{\"key\": \"value\"}")))
+                     "{\"key\": \"value\"}"))
+  (testing "A lexer should be able to handle multiple key value pairs"
+    (has-token-types [:left-brace :string :colon :string :comma :string :colon
+                      :string :right-brace :eof]
+                     "{
+  \"key\": \"value\",
+  \"key2\": \"value2\"
+}")))
 
 (deftest parse-test
   (testing "An empty json should parse to an empty map"
@@ -52,7 +59,20 @@
     (is (= "value"
            (-> "{\"key\": \"value\"}"
                sut/parse
-               (get "key"))))))
+               (get "key")))))
+  (testing "A json mapping with multiple key value pairs"
+    (let
+      [json
+       (sut/parse
+        "{
+           \"key\": \"value\",
+           \"key2\": \"value2\"
+         }")]
+
+      (testing "parses the first mapping"
+        (is (= "value" (get json "key"))))
+      (testing "parses the second mapping"
+        (is (= "value2" (get json "key2")))))))
 
 (deftest valid-json?-test
   (testing "A minimal valid json string is `{}`"
