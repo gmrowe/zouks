@@ -15,7 +15,7 @@
           (update :tokens
                   conj
                   {:token-type :string
-                   :value (str/join (subvec chars index (inc end-index)))})
+                   :value (str/join (subvec chars (inc index) end-index))})
           (assoc :index (inc end-index)))
       (recur (inc end-index)))))
 
@@ -43,6 +43,8 @@
 
 (defn eof? [{:keys [index chars]}] (<= (count chars) index))
 
+(defn error [msg] {:error msg})
+
 (defn lex-token
   [data]
   (let [data (skip-whitespace data)]
@@ -61,10 +63,38 @@
          first
          :tokens)))
 
-(defn valid-json?
+(defn parse
   [s]
-  (= (map :token-type (lex s)) [:left-brace :right-brace :eof]))
+  (loop [tokens (lex s)
+         state :init
+         mappings []]
+    (cond
+      (= state :init) (if (= :left-brace (:token-type (first tokens)))
+                        (recur (next tokens) :kv-or-end-of-object mappings)
+                        (error "Expected opening brace"))
+      (= state :kv-or-end-of-object)
+      (let [tok-type (:token-type (first tokens))]
+        (cond
+          (= tok-type :right-brace) (recur tokens :end-of-object mappings)
+          (= tok-type :string) (recur tokens :kv mappings)
+          :else (error "Expected kv pair or closing brace")))
 
-(defn parse-and-exit [s] (if (valid-json? (lex s)) {:exit 0} {:exit 1}))
+      (= state :kv)
+      (if (= [:string :colon :string] (map :token-type (take 3 tokens)))
+        (let [[k _ v] (map :value (take 3 tokens))]
+          (recur (drop 3 tokens) :end-of-object (conj mappings [k v])))
+        (error "Expected kv pair"))
+
+      (= state :end-of-object)
+      (if (= :right-brace (:token-type (first tokens)))
+        (reduce (fn [m [k v]] (assoc m k v)) {} mappings)
+        (error "Expected closing brace"))
+
+      :else (:error "Unrecognized state"))))
+
+(defn valid-json? [s] (not (:error (parse s))))
+
+(defn parse-and-exit [s] (if (valid-json? s) {:exit 0} {:exit 1}))
 
 (defn -main [& args] (println "Hello World!"))
+
