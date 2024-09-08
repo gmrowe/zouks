@@ -25,8 +25,6 @@
       (update :tokens conj token)
       (update :index inc)))
 
-(declare lex-token)
-
 (defn lex-next-token
   [{:keys [index chars] :as data}]
   (case (nth chars index)
