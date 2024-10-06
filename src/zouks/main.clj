@@ -14,8 +14,8 @@
       (-> data
           (update :tokens
                   conj
-                  {:token-type :string
-                   :value (str/join (subvec chars (inc index) end-index))})
+                  (make-token :string
+                              (str/join (subvec chars (inc index) end-index))))
           (assoc :index (inc end-index)))
       (recur (inc end-index)))))
 
@@ -25,6 +25,8 @@
       (update :tokens conj token)
       (update :index inc)))
 
+(defn error [msg] {:error msg})
+
 (defn lex-next-token
   [{:keys [index chars] :as data}]
   (case (nth chars index)
@@ -32,35 +34,50 @@
     \} (add-token-and-advance data (make-token :right-brace "}"))
     \" (lex-string data)
     \: (add-token-and-advance data (make-token :colon ":"))
-    \, (add-token-and-advance data (make-token :comma ","))))
+    \, (add-token-and-advance data (make-token :comma ","))
+    \t (let [expected "true"]
+         (when (= expected
+                  (str/join (subvec chars index (+ index (count expected)))))
+           (-> data
+               (update :tokens conj (make-token :boolean true))
+               (update :index + (count expected)))))
+    \f (let [expected "false"]
+         (when (= expected
+                  (str/join (subvec chars index (+ index (count expected)))))
+           (-> data
+               (update :tokens conj (make-token :boolean false))
+               (update :index + (count expected)))))
+    (error
+     (format "Unexpected token `%s` at index: %s" (nth chars index) index))))
 
 (defn skip-whitespace
   [{:keys [index chars] :as data}]
-  (if (and (< index (count chars)) (Character/isWhitespace (nth chars index)))
+  (cond
+    (:error data) data
+    (and (< index (count chars)) (Character/isWhitespace (nth chars index)))
     (recur (update data :index inc))
-    data))
+
+    :else data))
 
 (defn eof? [{:keys [index chars]}] (<= (count chars) index))
-
-(defn error [msg] {:error msg})
 
 (defn lex-token
   [data]
   (let [data (skip-whitespace data)]
     (cond
+      (:error data) (assoc data :done? true)
       (eof? data) (-> data
-                      (update :tokens conj {:token-type :eof})
+                      (update :tokens conj (make-token :eof nil))
                       (assoc :done? true))
       :else (lex-next-token data))))
 
 (defn lex
   [s]
-  (let [data {:index 0 :tokens [] :chars (vec (seq s))}]
-    (->> data
-         (iterate lex-token)
-         (drop-while #(not (:done? %)))
-         first
-         :tokens)))
+  (let [result (->> {:index 0 :tokens [] :chars (vec (seq s))}
+                    (iterate lex-token)
+                    (drop-while #(not (:done? %)))
+                    first)]
+    (if (:error result) result (:tokens result))))
 
 (defn parse
   [s]

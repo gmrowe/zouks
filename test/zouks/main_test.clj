@@ -5,7 +5,8 @@
 
 ;; TODOs
 ;; - report location of error on invalid json input
-;; - ignore whitespace
+;; - An unclosed string should return an error
+;;    { "key:value }
 
 (defn is-first-lexeme
   [expected s]
@@ -24,33 +25,44 @@
     (is (= "Hello World!\n" (with-out-str (sut/-main))))))
 
 (deftest lexer-test
-  (testing "A lexer should generate EOF token for empty string"
-    (is-first-lexeme :eof ""))
-  (testing
-    "A lexer should generate an :left-brace token when \\{ is encountered"
-    (is-first-lexeme :left-brace "{"))
-  (testing
-    "A lexer should generate a :right-brace token when \\} is encountered"
-    (is-first-lexeme :right-brace "}"))
-  (testing "A lexer should generate a sequence of tokens"
-    (has-token-types [:left-brace :right-brace :eof] "{}"))
-  (testing "A lexer should ignore whitespace"
-    (has-token-types [:left-brace :right-brace :eof] "{     }"))
-  (testing "A lexer should generate a string token when a string is encountered"
-    (is (= {:token-type :string :value "This is a string"}
-           (first (sut/lex "\"This is a string\"")))))
-  (testing "A lexer should generate a :colon token when \\: is encountered"
-    (is-first-lexeme :colon ":"))
-  (testing "A lexer should be able to lex a key value pair"
-    (has-token-types [:left-brace :string :colon :string :right-brace :eof]
-                     "{\"key\": \"value\"}"))
-  (testing "A lexer should be able to handle multiple key value pairs"
-    (has-token-types [:left-brace :string :colon :string :comma :string :colon
-                      :string :right-brace :eof]
-                     "{
+  (testing "A lexer should"
+    (testing "generate EOF token for empty string"
+      (is-first-lexeme :eof ""))
+    (testing
+      "generate an :left-brace token when \\{ is encountered"
+      (is-first-lexeme :left-brace "{"))
+    (testing
+      "generate a :right-brace token when \\} is encountered"
+      (is-first-lexeme :right-brace "}"))
+    (testing "generate a sequence of tokens"
+      (has-token-types [:left-brace :right-brace :eof] "{}"))
+    (testing "ignore whitespace"
+      (has-token-types [:left-brace :right-brace :eof] "{     }"))
+    (testing "generate a string token when a string is encountered"
+      (is (= {:token-type :string :value "This is a string"}
+             (first (sut/lex "\"This is a string\"")))))
+    (testing "generate a :colon token when \\: is encountered"
+      (is-first-lexeme :colon ":"))
+    (testing "be able to lex a key value pair"
+      (has-token-types [:left-brace :string :colon :string :right-brace :eof]
+                       "{\"key\": \"value\"}"))
+    (testing "be able to handle multiple key value pairs"
+      (has-token-types [:left-brace :string :colon :string :comma :string :colon
+                        :string :right-brace :eof]
+                       "{
   \"key\": \"value\",
   \"key2\": \"value2\"
-}")))
+}"))
+    (testing "generate a boolean token when `true` is encountered"
+      (is (= {:token-type :boolean :value true}
+             (first (sut/lex "true")))))
+    (testing "generate an error if true is not followed by a non-character"
+      (is (some? (:error (sut/lex "truely")))))
+    (testing "generate a boolean token when `false` is encountered"
+      (is (= {:token-type :boolean :value false}
+             (first (sut/lex "false")))))
+    (testing "generate an error if false is not followed by a non-character"
+      (is (some? (:error (sut/lex "falsey")))))))
 
 (deftest parse-test
   (testing "An empty json should parse to an empty map"
@@ -79,14 +91,20 @@
     (is (sut/valid-json? "{}")))
   (testing "An empty string is not valid json"
     (is (not (sut/valid-json? ""))))
-  (testing "An openting brace without a closing brace is not valid json"
+  (testing "A string with only spaces is not valid json"
+    (is (not (sut/valid-json? "     "))))
+  (testing "An opening brace without a closing brace is not valid json"
     (is (not (sut/valid-json? "{"))))
+  (testing "A closing brace without an opning brace is not valid json"
+    (is (not (sut/valid-json? "}"))))
   (testing "A valid json string with a single key/value pair"
     (is (sut/valid-json? "{\"key\": \"value\"}")))
   (testing "A key without a value is not a valid kv pair"
     (is (not (sut/valid-json? "{\"key\"}"))))
   (testing "A key value pair without a value is not valid json"
-    (is (not (sut/valid-json? "{\"key\"}:")))))
+    (is (not (sut/valid-json? "{\"key\":}"))))
+  (testing "A comma not followed by another key/value pair is not valid json"
+    (is (not (sut/valid-json? "{\"key\": \"value\",}")))))
 
 (deftest exit-code-test
   (testing "A valid json string should exit with code 0"
