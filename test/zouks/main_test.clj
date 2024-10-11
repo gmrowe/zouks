@@ -47,12 +47,13 @@
       (has-token-types [:left-brace :string :colon :string :right-brace :eof]
                        "{\"key\": \"value\"}"))
     (testing "be able to handle multiple key value pairs"
-      (has-token-types [:left-brace :string :colon :string :comma :string :colon
-                        :string :right-brace :eof]
-                       "{
-  \"key\": \"value\",
-  \"key2\": \"value2\"
-}"))
+      (has-token-types
+       [:left-brace :string :colon :string :comma :string :colon
+        :string :right-brace :eof]
+       "{
+                          \"key\": \"value\",
+                          \"key2\": \"value2\"
+                       }"))
     (testing "generate a boolean token when `true` is encountered"
       (is (= {:token-type :boolean :value true}
              (first (sut/lex "true")))))
@@ -62,7 +63,10 @@
       (is (= {:token-type :boolean :value false}
              (first (sut/lex "false")))))
     (testing "generate an error if false is not followed by a non-character"
-      (is (some? (:error (sut/lex "falsey")))))))
+      (is (some? (:error (sut/lex "falsey")))))
+    (testing "generate a nil token if `null` is encountered"
+      (is (= {:token-type :nil :value nil}
+             (first (sut/lex "null")))))))
 
 (deftest parse-test
   (testing "An empty json should parse to an empty map"
@@ -84,7 +88,13 @@
       (testing "parses the first mapping"
         (is (= "value" (get json "key"))))
       (testing "parses the second mapping"
-        (is (= "value2" (get json "key2")))))))
+        (is (= "value2" (get json "key2"))))))
+  (testing "A json mapping mapped to a true value"
+    (let [json (sut/parse "{ \"key\": true }")]
+      (is (true? (get json "key")))))
+  (testing "A json mapping mapped to a false value"
+    (let [json (sut/parse "{ \"key\": false }")]
+      (is (false? (get json "key"))))))
 
 (deftest valid-json?-test
   (testing "A minimal valid json string is `{}`"

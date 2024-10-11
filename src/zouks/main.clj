@@ -47,6 +47,12 @@
            (-> data
                (update :tokens conj (make-token :boolean false))
                (update :index + (count expected)))))
+    \n (let [expected "null"]
+         (when (= expected
+                  (str/join (subvec chars index (+ index (count expected)))))
+           (-> data
+               (update :tokens conj (make-token :nil nil))
+               (update :index + (count expected)))))
     (error
      (format "Unexpected token `%s` at index: %s" (nth chars index) index))))
 
@@ -95,13 +101,9 @@
           (= tok-type :string) (recur tokens :kv mappings)
           :else (error "Expected kv pair or closing brace")))
 
-      (= state :kv) (if (= [:string :colon :string]
-                           (map :token-type (take 3 tokens)))
-                      (let [[k _ v] (map :value (take 3 tokens))]
-                        (recur (drop 3 tokens)
-                               :next-mapping-or-end-of-object
-                               (conj mappings [k v])))
-                      (error "Expected kv pair"))
+      (= state :kv) (let [[k _ v] (map :value (take 3 tokens))]
+                      :next-mapping-or-end-of-object
+                      (recur (drop 3 tokens) (conj mappings [k v])))
       (= state :next-mapping-or-end-of-object)
       (let [tok-type (:token-type (first tokens))]
         (cond
