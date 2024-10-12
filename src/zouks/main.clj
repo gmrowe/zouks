@@ -21,16 +21,11 @@
 
 (defn lex-number
   [{:keys [index chars] :as data}]
-  (loop [end-index (inc index)]
-    (if (and (< end-index (count chars))
-             (Character/isDigit (nth chars end-index)))
-      (recur (inc end-index))
-      (let [num (-> (subvec chars index end-index)
-                    str/join
-                    parse-long)]
-        (-> data
-            (update :tokens conj (make-token :number num))
-            (assoc :index (inc end-index)))))))
+  (let [[digits more] (split-with #(Character/isDigit %) (subvec chars index))
+        token (make-token :number (parse-long (str/join digits)))]
+    (-> data
+        (update :tokens conj token)
+        (assoc :chars more))))
 
 (defn add-token-and-advance
   [data token]
