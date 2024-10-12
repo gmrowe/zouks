@@ -18,6 +18,20 @@
                               (str/join (subvec chars (inc index) end-index))))
           (assoc :index (inc end-index)))
       (recur (inc end-index)))))
+(defn lex-number
+  [{:keys [index chars] :as data}]
+  (loop [end-index (inc index)]
+    (if (and (< end-index (count chars))
+             (Character/isDigit (nth chars end-index)))
+      (recur (inc end-index))
+      (-> data
+          (update :tokens
+                  conj
+                  (make-token :number
+                              (-> (subvec chars index end-index)
+                                  str/join
+                                  parse-long)))
+          (assoc :index (inc end-index))))))
 
 (defn add-token-and-advance
   [data token]
@@ -29,32 +43,38 @@
 
 (defn lex-next-token
   [{:keys [index chars] :as data}]
-  (case (nth chars index)
-    \{ (add-token-and-advance data (make-token :left-brace "{"))
-    \} (add-token-and-advance data (make-token :right-brace "}"))
-    \" (lex-string data)
-    \: (add-token-and-advance data (make-token :colon ":"))
-    \, (add-token-and-advance data (make-token :comma ","))
-    \t (let [expected "true"]
-         (when (= expected
-                  (str/join (subvec chars index (+ index (count expected)))))
-           (-> data
-               (update :tokens conj (make-token :boolean true))
-               (update :index + (count expected)))))
-    \f (let [expected "false"]
-         (when (= expected
-                  (str/join (subvec chars index (+ index (count expected)))))
-           (-> data
-               (update :tokens conj (make-token :boolean false))
-               (update :index + (count expected)))))
-    \n (let [expected "null"]
-         (when (= expected
-                  (str/join (subvec chars index (+ index (count expected)))))
-           (-> data
-               (update :tokens conj (make-token :nil nil))
-               (update :index + (count expected)))))
-    (error
-     (format "Unexpected token `%s` at index: %s" (nth chars index) index))))
+  (let [ch (nth chars index)]
+    (cond
+      (= ch \{) (add-token-and-advance data (make-token :left-brace "{"))
+      (= ch \}) (add-token-and-advance data (make-token :right-brace "}"))
+      (= ch \") (lex-string data)
+      (= ch \:) (add-token-and-advance data (make-token :colon ":"))
+      (= ch \,) (add-token-and-advance data (make-token :comma ","))
+      (= ch \t) (let [expected "true"]
+                  (when (= expected
+                           (str/join
+                            (subvec chars index (+ index (count expected)))))
+                    (-> data
+                        (update :tokens conj (make-token :boolean true))
+                        (update :index + (count expected)))))
+      (= ch \f) (let [expected "false"]
+                  (when (= expected
+                           (str/join
+                            (subvec chars index (+ index (count expected)))))
+                    (-> data
+                        (update :tokens conj (make-token :boolean false))
+                        (update :index + (count expected)))))
+      (= ch \n) (let [expected "null"]
+                  (when (= expected
+                           (str/join
+                            (subvec chars index (+ index (count expected)))))
+                    (-> data
+                        (update :tokens conj (make-token :nil nil))
+                        (update :index + (count expected)))))
+      (Character/isDigit ch) (lex-number data)
+      :else (error (format "Unexpected token `%s` at index: %s"
+                           (nth chars index)
+                           index)))))
 
 (defn skip-whitespace
   [{:keys [index chars] :as data}]
@@ -103,7 +123,9 @@
 
       (= state :kv) (let [[k _ v] (map :value (take 3 tokens))]
                       :next-mapping-or-end-of-object
-                      (recur (drop 3 tokens) (conj mappings [k v])))
+                      (recur (drop 3 tokens)
+                             :next-mapping-or-end-of-object
+                             (conj mappings [k v])))
       (= state :next-mapping-or-end-of-object)
       (let [tok-type (:token-type (first tokens))]
         (cond

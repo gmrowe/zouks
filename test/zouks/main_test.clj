@@ -6,6 +6,10 @@
 ;; TODOs
 ;; - report location of error on invalid json input
 ;; - An unclosed string should return an error
+;; - support negative numbers
+;; - support floating point numbers
+;; - support floating point numbers of the form 6.02e-23
+;; -
 ;;    { "key:value }
 
 (defn is-first-lexeme
@@ -66,7 +70,10 @@
       (is (some? (:error (sut/lex "falsey")))))
     (testing "generate a nil token if `null` is encountered"
       (is (= {:token-type :nil :value nil}
-             (first (sut/lex "null")))))))
+             (first (sut/lex "null")))))
+    (testing "generate a numeric token when a number is encountered"
+      (is (= {:token-type :number :value 125}
+             (first (sut/lex "125")))))))
 
 (deftest parse-test
   (testing "An empty json should parse to an empty map"
@@ -94,7 +101,11 @@
       (is (true? (get json "key")))))
   (testing "A json mapping mapped to a false value"
     (let [json (sut/parse "{ \"key\": false }")]
-      (is (false? (get json "key"))))))
+      (is (false? (get json "key")))))
+  (testing "A json mapping mappeed to a `null` value"
+    (let [json (sut/parse "{ \"key\": null }")]
+      (is (nil? (get json "key")))
+      (is (some #{"key"} (keys json))))))
 
 (deftest valid-json?-test
   (testing "A minimal valid json string is `{}`"
