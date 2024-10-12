@@ -45,7 +45,7 @@
     (testing "generate a string token when a string is encountered"
       (is (= {:token-type :string :value "This is a string"}
              (first (sut/lex "\"This is a string\"")))))
-    (testing "generate a :colon token when \\: is encountered"
+    (testing "generate a :colon token when `:` is encountered"
       (is-first-lexeme :colon ":"))
     (testing "be able to lex a key value pair"
       (has-token-types [:left-brace :string :colon :string :right-brace :eof]
@@ -55,9 +55,9 @@
        [:left-brace :string :colon :string :comma :string :colon
         :string :right-brace :eof]
        "{
-                          \"key\": \"value\",
-                          \"key2\": \"value2\"
-                       }"))
+          \"key\": \"value\",
+          \"key2\": \"value2\"
+        }"))
     (testing "generate a boolean token when `true` is encountered"
       (is (= {:token-type :boolean :value true}
              (first (sut/lex "true")))))
