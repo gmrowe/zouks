@@ -105,7 +105,34 @@
   (testing "A json mapping mappeed to a `null` value"
     (let [json (sut/parse "{ \"key\": null }")]
       (is (nil? (get json "key")))
-      (is (some #{"key"} (keys json))))))
+      (is (some #{"key"} (keys json)))))
+  (testing "A json mapping mapped to an integer value"
+    (let [json (sut/parse "{ \"key\": 42 }")]
+      (is (= 42 (get json "key"))))))
+
+(comment
+  ;; This is correct!!
+  (sut/parse
+   "{
+      \"key1\": true,
+      \"key2\": false,
+      \"key3\": null,
+      \"key4\": \"value\",
+      \"key5\": 101
+   }")
+
+  ;; TODO: this results in
+  ;; => {:error "Expected opening brace"}
+  ;; but that is not the correct error message
+  (sut/parse
+   "{
+      \"key1\": true,
+      \"key2\": alse,
+      \"key3\": null,
+      \"key4\": \"value\",
+      \"key5\": 101
+    }")
+)
 
 (deftest valid-json?-test
   (testing "A minimal valid json string is `{}`"
