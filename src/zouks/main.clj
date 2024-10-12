@@ -137,7 +137,7 @@
 
       (= state :value)
       (let [token (first tokens)]
-        (if (#{:string :boolean :null} (:token-type token))
+        (if (#{:string :boolean :null :number} (:token-type token))
           (recur (-> parser
                      (update :tokens next)
                      (update :mappings conj [(:key parser) (:value token)])
