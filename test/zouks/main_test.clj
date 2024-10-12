@@ -69,7 +69,7 @@
     (testing "generate an error if false is not followed by a non-character"
       (is (some? (:error (sut/lex "falsey")))))
     (testing "generate a nil token if `null` is encountered"
-      (is (= {:token-type :nil :value nil}
+      (is (= {:token-type :null :value nil}
              (first (sut/lex "null")))))
     (testing "generate a numeric token when a number is encountered"
       (is (= {:token-type :number :value 125}

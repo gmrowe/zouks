@@ -18,20 +18,19 @@
                               (str/join (subvec chars (inc index) end-index))))
           (assoc :index (inc end-index)))
       (recur (inc end-index)))))
+
 (defn lex-number
   [{:keys [index chars] :as data}]
   (loop [end-index (inc index)]
     (if (and (< end-index (count chars))
              (Character/isDigit (nth chars end-index)))
       (recur (inc end-index))
-      (-> data
-          (update :tokens
-                  conj
-                  (make-token :number
-                              (-> (subvec chars index end-index)
-                                  str/join
-                                  parse-long)))
-          (assoc :index (inc end-index))))))
+      (let [num (-> (subvec chars index end-index)
+                    str/join
+                    parse-long)]
+        (-> data
+            (update :tokens conj (make-token :number num))
+            (assoc :index (inc end-index)))))))
 
 (defn add-token-and-advance
   [data token]
@@ -69,7 +68,7 @@
                            (str/join
                             (subvec chars index (+ index (count expected)))))
                     (-> data
-                        (update :tokens conj (make-token :nil nil))
+                        (update :tokens conj (make-token :null nil))
                         (update :index + (count expected)))))
       (Character/isDigit ch) (lex-number data)
       :else (error (format "Unexpected token `%s` at index: %s"
@@ -105,40 +104,67 @@
                     first)]
     (if (:error result) result (:tokens result))))
 
-(defn parse
-  [s]
-  (loop [tokens (lex s)
-         state :init
-         mappings []]
+(defn parse-tokens
+  [tokens]
+  (loop [{:keys [tokens state mappings] :as parser}
+         {:tokens tokens :state :init :mappings []}]
     (cond
       (= state :init) (if (= :left-brace (:token-type (first tokens)))
-                        (recur (next tokens) :kv-or-end-of-object mappings)
+                        (recur (-> parser
+                                   (update :tokens next)
+                                   (assoc :state :key-or-end-of-object)))
                         (error "Expected opening brace"))
-      (= state :kv-or-end-of-object)
+      (= state :key-or-end-of-object)
       (let [tok-type (:token-type (first tokens))]
         (cond
-          (= tok-type :right-brace) (recur tokens :end-of-object mappings)
-          (= tok-type :string) (recur tokens :kv mappings)
+          (= tok-type :right-brace) (recur (assoc parser :state :end-of-object))
+          (= tok-type :string) (recur (assoc parser :state :key))
           :else (error "Expected kv pair or closing brace")))
 
-      (= state :kv) (let [[k _ v] (map :value (take 3 tokens))]
-                      :next-mapping-or-end-of-object
-                      (recur (drop 3 tokens)
-                             :next-mapping-or-end-of-object
-                             (conj mappings [k v])))
-      (= state :next-mapping-or-end-of-object)
+      (= state :key) (let [token (first tokens)]
+                       (if (= :string (:token-type token))
+                         (recur (-> parser
+                                    (update :tokens next)
+                                    (assoc :key (:value token))
+                                    (assoc :state :separator)))
+                         (error "Expected string - key must be a string")))
+      (= state :separator)
+      (let [tok-type (:token-type (first tokens))]
+        (if (= tok-type :colon)
+          (recur (-> parser
+                     (update :tokens next)
+                     (assoc :state :value)))
+          (error "Expected colon (`:`) - separator must be colon")))
+
+      (= state :value)
+      (let [token (first tokens)]
+        (if (#{:string :boolean :null} (:token-type token))
+          (recur (-> parser
+                     (update :tokens next)
+                     (update :mappings conj [(:key parser) (:value token)])
+                     (assoc :state :comma-or-end-of-object)))
+          (error (format "Unsupported value type: %s" (:token-type token)))))
+
+      (= state :comma-or-end-of-object)
       (let [tok-type (:token-type (first tokens))]
         (cond
-          (= tok-type :right-brace) (recur tokens :end-of-object mappings)
-          (= tok-type :comma) (recur (next tokens) :kv mappings)
-          :else (error "Expected kv pair or closing brace")))
+          (= tok-type :comma) (recur (assoc parser :state :comma))
+          (= tok-type :right-brace) (recur (assoc parser :state :end-of-object))
+          :else (error "Expected comma or closing brace")))
 
+      (= state :comma) (if (= :comma (:token-type (first tokens)))
+                         (recur (-> parser
+                                    (update :tokens next)
+                                    (assoc :state :key)))
+                         (error "Expected opening brace"))
       (= state :end-of-object)
       (if (= :right-brace (:token-type (first tokens)))
         (reduce (fn [m [k v]] (assoc m k v)) {} mappings)
         (error "Expected closing brace"))
 
-      :else (:error "Unrecognized state"))))
+      :else (error (format "Unknown state: `%s`" state)))))
+
+(defn parse [s] (parse-tokens (lex s)))
 
 (defn valid-json? [s] (not (:error (parse s))))
 
