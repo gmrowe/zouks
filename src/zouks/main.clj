@@ -37,6 +37,8 @@
 
 (defn lex-next-token
   [{:keys [index chars] :as data}]
+  ;; TODO: do we really need indexed based parsing or should we
+  ;;       move to more list based parsing?
   (let [ch (nth chars index)]
     (cond
       (= ch \{) (add-token-and-advance data (make-token :left-brace "{"))
@@ -99,6 +101,9 @@
                     first)]
     (if (:error result) result (:tokens result))))
 
+
+;; TODO: Should we have a function to parse individual tokens or is it ok to
+;;       parse all tokens in a loop?
 (defn parse-tokens
   [tokens]
   (loop [{:keys [tokens state mappings] :as parser}
@@ -109,6 +114,9 @@
                                    (update :tokens next)
                                    (assoc :state :key-or-end-of-object)))
                         (error "Expected opening brace"))
+      ;; TODO: Implement a `peek` style function so we don't have to enter
+      ;; this
+      ;;       state at all
       (= state :key-or-end-of-object)
       (let [tok-type (:token-type (first tokens))]
         (cond
@@ -140,6 +148,9 @@
                      (assoc :state :comma-or-end-of-object)))
           (error (format "Unsupported value type: %s" (:token-type token)))))
 
+      ;; TODO: Implement a `peek` style function so we don't have to enter
+      ;; this
+      ;;       state at all
       (= state :comma-or-end-of-object)
       (let [tok-type (:token-type (first tokens))]
         (cond
