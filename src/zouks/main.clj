@@ -9,23 +9,19 @@
 
 (defn lex-string
   [{:keys [index chars] :as data}]
-  (loop [end-index (inc index)]
-    (if (= \" (nth chars end-index))
-      (-> data
-          (update :tokens
-                  conj
-                  (make-token :string
-                              (str/join (subvec chars (inc index) end-index))))
-          (assoc :index (inc end-index)))
-      (recur (inc end-index)))))
+  (let [string (take-while #(not= \" %) (subvec chars (inc index)))
+        token (make-token :string (str/join string))]
+    (-> data
+        (update :tokens conj token)
+        (update :index + (count string) 2))))
 
 (defn lex-number
   [{:keys [index chars] :as data}]
-  (let [[digits more] (split-with #(Character/isDigit %) (subvec chars index))
+  (let [digits (take-while #(Character/isDigit %) (subvec chars index))
         token (make-token :number (parse-long (str/join digits)))]
     (-> data
         (update :tokens conj token)
-        (assoc :chars more))))
+        (update :index + (count digits)))))
 
 (defn add-token-and-advance
   [data token]
