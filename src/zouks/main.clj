@@ -23,77 +23,73 @@
         (update :tokens conj token)
         (update :index + (count digits)))))
 
-(defn add-token-and-advance
-  [data token]
-  (-> data
-      (update :tokens conj token)
-      (update :index inc)))
-
 (defn error [msg] {:error msg})
-
-(defn lex-next-token
-  [{:keys [index chars] :as data}]
-  ;; TODO: do we really need indexed based parsing or should we
-  ;;       move to more list based parsing?
-  (let [ch (nth chars index)]
-    (cond
-      (= ch \{) (add-token-and-advance data (make-token :left-brace "{"))
-      (= ch \}) (add-token-and-advance data (make-token :right-brace "}"))
-      (= ch \") (lex-string data)
-      (= ch \:) (add-token-and-advance data (make-token :colon ":"))
-      (= ch \,) (add-token-and-advance data (make-token :comma ","))
-      (= ch \t) (let [expected "true"]
-                  (when (= expected
-                           (str/join
-                            (subvec chars index (+ index (count expected)))))
-                    (-> data
-                        (update :tokens conj (make-token :boolean true))
-                        (update :index + (count expected)))))
-      (= ch \f) (let [expected "false"]
-                  (when (= expected
-                           (str/join
-                            (subvec chars index (+ index (count expected)))))
-                    (-> data
-                        (update :tokens conj (make-token :boolean false))
-                        (update :index + (count expected)))))
-      (= ch \n) (let [expected "null"]
-                  (when (= expected
-                           (str/join
-                            (subvec chars index (+ index (count expected)))))
-                    (-> data
-                        (update :tokens conj (make-token :null nil))
-                        (update :index + (count expected)))))
-      (Character/isDigit ch) (lex-number data)
-      :else (error (format "Unexpected token `%s` at index: %s"
-                           (nth chars index)
-                           index)))))
 
 (defn skip-whitespace
   [{:keys [index chars] :as data}]
-  (cond
-    (:error data) data
-    (and (< index (count chars)) (Character/isWhitespace (nth chars index)))
+  (if (and (< index (count chars)) (Character/isWhitespace (nth chars index)))
     (recur (update data :index inc))
-
-    :else data))
+    data))
 
 (defn eof? [{:keys [index chars]}] (<= (count chars) index))
 
+(def single-character-tokens
+  {\{ (make-token :left-brace "{")
+   \} (make-token :right-brace "}")
+   \: (make-token :colon ":")
+   \, (make-token :comma "")})
+
 (defn lex-token
   [data]
-  (let [data (skip-whitespace data)]
-    (cond
-      (:error data) (assoc data :done? true)
-      (eof? data) (-> data
-                      (update :tokens conj (make-token :eof nil))
-                      (assoc :done? true))
-      :else (lex-next-token data))))
+  ;; TODO: do we really need indexed based parsing or should we
+  ;;       move to more list based parsing?
+  (let [{:keys [index chars] :as data} (skip-whitespace data)]
+    (if (< index (count chars))
+      (let [ch (nth chars index)]
+        (cond
+          (some? (single-character-tokens ch))
+          (-> data
+              (update :tokens conj (single-character-tokens ch))
+              (update :index inc))
+
+          (= ch \") (lex-string data)
+          (= ch \t)
+          (let [expected "true"]
+            (when (= expected
+                     (str/join (subvec chars index (+ index (count expected)))))
+              (-> data
+                  (update :tokens conj (make-token :boolean true))
+                  (update :index + (count expected)))))
+
+          (= ch \f)
+          (let [expected "false"]
+            (when (= expected
+                     (str/join (subvec chars index (+ index (count expected)))))
+              (-> data
+                  (update :tokens conj (make-token :boolean false))
+                  (update :index + (count expected)))))
+
+          (= ch \n)
+          (let [expected "null"]
+            (when (= expected
+                     (str/join (subvec chars index (+ index (count expected)))))
+              (-> data
+                  (update :tokens conj (make-token :null nil))
+                  (update :index + (count expected)))))
+
+          (Character/isDigit ch) (lex-number data)
+          :else (error (format "Unexpected token `%s` at index: %s"
+                               (nth chars index)
+                               index))))
+      (-> data
+          (update :tokens conj (make-token :eof nil))
+          (assoc :done? true)))))
 
 (defn lex
   [s]
   (let [result (->> {:index 0 :tokens [] :chars (vec (seq s))}
                     (iterate lex-token)
-                    (drop-while #(not (:done? %)))
+                    (drop-while #(and (not (:done? %)) (not (:error %))))
                     first)]
     (if (:error result) result (:tokens result))))
 
@@ -145,8 +141,7 @@
           (error (format "Unsupported value type: %s" (:token-type token)))))
 
       ;; TODO: Implement a `peek` style function so we don't have to enter
-      ;; this
-      ;;       state at all
+      ;; this state at all
       (= state :comma-or-end-of-object)
       (let [tok-type (:token-type (first tokens))]
         (cond
@@ -158,7 +153,7 @@
                          (recur (-> parser
                                     (update :tokens next)
                                     (assoc :state :key)))
-                         (error "Expected opening brace"))
+                         (error "Expected comma"))
       (= state :end-of-object)
       (if (= :right-brace (:token-type (first tokens)))
         (reduce (fn [m [k v]] (assoc m k v)) {} mappings)
@@ -166,7 +161,10 @@
 
       :else (error (format "Unknown state: `%s`" state)))))
 
-(defn parse [s] (parse-tokens (lex s)))
+(defn parse
+  [s]
+  (let [tokens (lex s)]
+    (if (:error tokens) (select-keys tokens [:error]) (parse-tokens tokens))))
 
 (defn valid-json? [s] (not (:error (parse s))))
 

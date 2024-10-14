@@ -1,6 +1,7 @@
 (ns zouks.main-test
   (:require
    [clojure.test :refer [deftest is testing]]
+   [clojure.string :as str]
    [zouks.main :as sut]))
 
 ;; TODOs
@@ -108,10 +109,12 @@
       (is (some #{"key"} (keys json)))))
   (testing "A json mapping mapped to an integer value"
     (let [json (sut/parse "{ \"key\": 42 }")]
-      (is (= 42 (get json "key"))))))
+      (is (= 42 (get json "key")))))
+  (testing "A lexer error results in a parser error"
+    (is (str/includes? (:error (sut/parse "False")) "Unexpected token"))))
 
 (comment
-  ;; This is correct!!
+  ;; This parses correctly
   (sut/parse
    "{
       \"key1\": true,
@@ -121,13 +124,13 @@
       \"key5\": 101
    }")
 
-  ;; TODO: this results in
-  ;; => {:error "Expected opening brace"}
-  ;; but that is not the correct error message
+  (sut/lex "False")
+
+  ;; This fails on lexer phase
   (sut/parse
    "{
       \"key1\": true,
-      \"key2\": alse,
+      \"key2\": False,
       \"key3\": null,
       \"key4\": \"value\",
       \"key5\": 101
