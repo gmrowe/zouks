@@ -95,6 +95,14 @@
                     first)]
     (if (:error result) result (:tokens result))))
 
+(defn expect-token-type
+  [parser expected-token-type]
+  (let [token-type (:token-type (first (:tokens parser)))]
+    (if (= expected-token-type token-type)
+      (update parser :tokens next)
+      (error "Expected token-type `%s`, but got `%s`"
+             expect-token-type
+             token-type))))
 
 (defn parse-key
   [parser]
@@ -102,18 +110,8 @@
     (if (= :string (:token-type token))
       (-> parser
           (update :tokens next)
-          (assoc :key (:value token))
-          (assoc :state :separator))
+          (assoc :key (:value token)))
       (error "Expected string - key must be a string"))))
-
-(defn parse-separator
-  [parser]
-  (let [tok-type (:token-type (first (:tokens parser)))]
-    (if (= tok-type :colon)
-      (-> parser
-          (update :tokens next)
-          (assoc :state :value))
-      (error "Expected colon (`:`) - separator must be colon"))))
 
 (defn parse-value
   [parser]
@@ -121,20 +119,19 @@
     (if (#{:string :boolean :null :number} (:token-type token))
       (-> parser
           (update :tokens next)
-          (update :mappings conj [(:key parser) (:value token)])
-          (assoc :state :comma-or-end-of-object))
+          (update :mappings conj [(:key parser) (:value token)]))
       (error (format "Unsupported value type: %s" (:token-type token))))))
 
 (defn parse-kv
   [parser]
   (-> parser
       parse-key
-      parse-separator
+      (expect-token-type :colon)
       parse-value))
 
 (defn parse-object
   [parser]
-  (loop [parser (update parser :tokens next)]
+  (loop [parser (expect-token-type parser :left-brace)]
     (let [tok-type (:token-type (first (:tokens parser)))]
       (cond
         (= tok-type :right-brace)
@@ -152,11 +149,10 @@
   (let [tokens (lex s)]
     (if (:error tokens)
       (select-keys tokens [:error])
-      (parse-object {:tokens tokens :state :init :mappings []}))))
+      (parse-object {:tokens tokens :mappings []}))))
 
 (defn valid-json? [s] (not (:error (parse s))))
 
 (defn parse-and-exit [s] (if (valid-json? s) {:exit 0} {:exit 1}))
 
 (defn -main [& args] (println "Hello World!"))
-
