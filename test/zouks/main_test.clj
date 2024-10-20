@@ -132,9 +132,18 @@
   (testing "A json mapping mapped to an empty list"
     (let [json (sut/parse "{ \"key\": [] }")]
       (is (= [] (get json "key")))))
-  #_(testing "A json mapping mapped to a singleton list"
-      (let [json (sut/parse "{ \"key\": [42] }")]
-        (is (= [42] (get json "key"))))))
+  (testing "A json mapping mapped to a singleton list of number"
+    (let [json (sut/parse "{ \"key\": [42] }")]
+      (is (= [42] (get json "key")))))
+  (testing "A json mapping mapped to a singleton list of boolean"
+    (let [json (sut/parse "{ \"key\": [false] }")]
+      (is (= [false] (get json "key")))))
+  (testing "A json mapping mapped to a singleton list of null"
+    (let [json (sut/parse "{ \"key\": [null] }")]
+      (is (= [nil] (get json "key")))))
+  (testing "A json mapping mapped to a singleton list of String"
+    (let [json (sut/parse "{ \"key\": [\"value\"] }")]
+      (is (= ["value"] (get json "key"))))))
 
 (comment
   ;; This parses correctly

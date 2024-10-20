@@ -113,13 +113,26 @@
           (assoc :key (:value token)))
       (error "Expected string - key must be a string"))))
 
+(declare parse-value)
+
 (defn parse-list
   [parser]
   (loop [parser (expect-token-type parser :left-square-bracket)]
     (let [token (first (:tokens parser))]
-      (-> parser
-          (expect-token-type :right-square-bracket)
-          (update :mappings conj [(:key parser) []])))))
+      (cond
+        (= :right-square-bracket (:token-type token))
+        (-> parser
+            (expect-token-type :right-square-bracket)
+            (assoc :value (vec (:elements parser))))
+
+        (#{:boolean :number :null :string} (:token-type token))
+        (let [parser-with-value (parse-value parser)]
+          (recur (->
+                   parser-with-value
+                   (update :elements (fnil conj []) (:value parser-with-value))
+                   (dissoc :value))))
+
+        :else (error "Only empty lists currently implemented")))))
 
 (defn parse-value
   [parser]
@@ -128,17 +141,21 @@
       (#{:string :boolean :null :number} (:token-type token))
       (-> parser
           (update :tokens next)
-          (update :mappings conj [(:key parser) (:value token)]))
+          (assoc :value (:value token)))
 
       (= :left-square-bracket (:token-type token)) (parse-list parser)
       :else (error (format "Unsupported value type: %s" (:token-type token))))))
 
 (defn parse-kv
   [parser]
-  (-> parser
-      parse-key
-      (expect-token-type :colon)
-      parse-value))
+  (let [with-kv (-> parser
+                    parse-key
+                    (expect-token-type :colon)
+                    parse-value)]
+    (-> with-kv
+        (update :mappings conj [(:key with-kv) (:value with-kv)])
+        (dissoc :key)
+        (dissoc :value))))
 
 (defn parse-object
   [parser]
