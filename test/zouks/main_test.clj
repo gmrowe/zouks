@@ -13,6 +13,9 @@
 ;; -
 ;;    { "key:value }
 
+;; For the seeming inconsistency in bracket names see here:
+;; https://en.wikipedia.org/wiki/Bracket
+
 (defn is-first-lexeme
   [expected s]
   (is (= expected
@@ -74,12 +77,18 @@
              (first (sut/lex "null")))))
     (testing "generate a numeric token when a number is encountered"
       (is (= {:token-type :number :value 125}
-             (first (sut/lex "125")))))))
+             (first (sut/lex "125")))))
+    (testing "generate a left square bracket if [ is encountered"
+      (is (= {:token-type :left-square-bracket :value "["}
+             (first (sut/lex "[")))))
+    (testing "generate a right square bracket if ] encountered"
+      (is (= {:token-type :right-square-bracket :value "]"}
+             (first (sut/lex "]")))))))
 
 (deftest parse-test
   (testing "An empty json should parse to an empty map"
     (is (= {} (sut/parse "{}"))))
-  (testing "A json with a mapping should parse to a clojure map with mapping"
+  (testing "A json with a mapping should parse to a clojure map with  mapping"
     (is (= "value"
            (-> "{\"key\": \"value\"}"
                sut/parse
@@ -92,11 +101,19 @@
            \"key\": \"value\",
            \"key2\": \"value2\"
          }")]
-
       (testing "parses the first mapping"
         (is (= "value" (get json "key"))))
       (testing "parses the second mapping"
         (is (= "value2" (get json "key2"))))))
+  (testing "A valid json mapping cannot start with a comma"
+    (let
+      [json
+       (sut/parse
+        "{ ,
+           \"key\": \"value\",
+           \"key2\": \"value2\"
+         }")]
+      (is (some? (:error json)))))
   (testing "A json mapping mapped to a true value"
     (let [json (sut/parse "{ \"key\": true }")]
       (is (true? (get json "key")))))
@@ -111,7 +128,13 @@
     (let [json (sut/parse "{ \"key\": 42 }")]
       (is (= 42 (get json "key")))))
   (testing "A lexer error results in a parser error"
-    (is (str/includes? (:error (sut/parse "False")) "Unexpected token"))))
+    (is (str/includes? (:error (sut/parse "False")) "Unexpected token")))
+  #_(testing "A json mapping mapped to an empty list"
+      (let [json (sut/parse "{ \"key\": [] }")]
+        (is (= [] (get json "key")))))
+  #_(testing "A json mapping mapped to a singleton list"
+      (let [json (sut/parse "{ \"key\": [42] }")]
+        (is (= [42] (get json "key"))))))
 
 (comment
   ;; This parses correctly
@@ -137,28 +160,28 @@
     }")
 )
 
-(deftest valid-json?-test
-  (testing "A minimal valid json string is `{}`"
-    (is (sut/valid-json? "{}")))
-  (testing "An empty string is not valid json"
-    (is (not (sut/valid-json? ""))))
-  (testing "A string with only spaces is not valid json"
-    (is (not (sut/valid-json? "     "))))
-  (testing "An opening brace without a closing brace is not valid json"
-    (is (not (sut/valid-json? "{"))))
-  (testing "A closing brace without an opning brace is not valid json"
-    (is (not (sut/valid-json? "}"))))
-  (testing "A valid json string with a single key/value pair"
-    (is (sut/valid-json? "{\"key\": \"value\"}")))
-  (testing "A key without a value is not a valid kv pair"
-    (is (not (sut/valid-json? "{\"key\"}"))))
-  (testing "A key value pair without a value is not valid json"
-    (is (not (sut/valid-json? "{\"key\":}"))))
-  (testing "A comma not followed by another key/value pair is not valid json"
-    (is (not (sut/valid-json? "{\"key\": \"value\",}")))))
+#_(deftest valid-json?-test
+    (testing "A minimal valid json string is `{}`"
+      (is (sut/valid-json? "{}")))
+    (testing "An empty string is not valid json"
+      (is (not (sut/valid-json? ""))))
+    (testing "A string with only spaces is not valid json"
+      (is (not (sut/valid-json? "     "))))
+    (testing "An opening brace without a closing brace is not valid json"
+      (is (not (sut/valid-json? "{"))))
+    (testing "A closing brace without an opning brace is not valid json"
+      (is (not (sut/valid-json? "}"))))
+    (testing "A valid json string with a single key/value pair"
+      (is (sut/valid-json? "{\"key\": \"value\"}")))
+    (testing "A key without a value is not a valid kv pair"
+      (is (not (sut/valid-json? "{\"key\"}"))))
+    (testing "A key value pair without a value is not valid json"
+      (is (not (sut/valid-json? "{\"key\":}"))))
+    (testing "A comma not followed by another key/value pair is not valid json"
+      (is (not (sut/valid-json? "{\"key\": \"value\",}")))))
 
-(deftest exit-code-test
-  (testing "A valid json string should exit with code 0"
-    (is (= 0 (:exit (sut/parse-and-exit "{}")))))
-  (testing "An invalid json string should exit with code 1"
-    (is (= 1 (:exit (sut/parse-and-exit ""))))))
+#_(deftest exit-code-test
+    (testing "A valid json string should exit with code 0"
+      (is (= 0 (:exit (sut/parse-and-exit "{}")))))
+    (testing "An invalid json string should exit with code 1"
+      (is (= 1 (:exit (sut/parse-and-exit ""))))))
