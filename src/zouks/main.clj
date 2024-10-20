@@ -100,9 +100,9 @@
   (let [token-type (:token-type (first (:tokens parser)))]
     (if (= expected-token-type token-type)
       (update parser :tokens next)
-      (error "Expected token-type `%s`, but got `%s`"
-             expect-token-type
-             token-type))))
+      (error (format "Expected token-type `%s`, but got `%s`"
+                     expect-token-type
+                     token-type)))))
 
 (defn parse-key
   [parser]
@@ -113,14 +113,25 @@
           (assoc :key (:value token)))
       (error "Expected string - key must be a string"))))
 
+(defn parse-list
+  [parser]
+  (loop [parser (expect-token-type parser :left-square-bracket)]
+    (let [token (first (:tokens parser))]
+      (-> parser
+          (expect-token-type :right-square-bracket)
+          (update :mappings conj [(:key parser) []])))))
+
 (defn parse-value
   [parser]
   (let [token (first (:tokens parser))]
-    (if (#{:string :boolean :null :number} (:token-type token))
+    (cond
+      (#{:string :boolean :null :number} (:token-type token))
       (-> parser
           (update :tokens next)
           (update :mappings conj [(:key parser) (:value token)]))
-      (error (format "Unsupported value type: %s" (:token-type token))))))
+
+      (= :left-square-bracket (:token-type token)) (parse-list parser)
+      :else (error (format "Unsupported value type: %s" (:token-type token))))))
 
 (defn parse-kv
   [parser]

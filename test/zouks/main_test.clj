@@ -129,9 +129,9 @@
       (is (= 42 (get json "key")))))
   (testing "A lexer error results in a parser error"
     (is (str/includes? (:error (sut/parse "False")) "Unexpected token")))
-  #_(testing "A json mapping mapped to an empty list"
-      (let [json (sut/parse "{ \"key\": [] }")]
-        (is (= [] (get json "key")))))
+  (testing "A json mapping mapped to an empty list"
+    (let [json (sut/parse "{ \"key\": [] }")]
+      (is (= [] (get json "key")))))
   #_(testing "A json mapping mapped to a singleton list"
       (let [json (sut/parse "{ \"key\": [42] }")]
         (is (= [42] (get json "key"))))))
