@@ -125,14 +125,19 @@
             (expect-token-type :right-square-bracket)
             (assoc :value (vec (:elements parser))))
 
-        (#{:boolean :number :null :string} (:token-type token))
+        (and (seq (:elements parser)) (= :comma (:token-type token)))
+        (recur (update parser :tokens next))
+
+        (#{:boolean :number :null :string :left-square-bracket}
+         (:token-type token))
         (let [parser-with-value (parse-value parser)]
           (recur (->
                    parser-with-value
                    (update :elements (fnil conj []) (:value parser-with-value))
                    (dissoc :value))))
 
-        :else (error "Only empty lists currently implemented")))))
+        :else (error (format "Unexpected token type `%s`"
+                             (:token-typ token)))))))
 
 (defn parse-value
   [parser]

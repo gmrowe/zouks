@@ -143,7 +143,13 @@
       (is (= [nil] (get json "key")))))
   (testing "A json mapping mapped to a singleton list of String"
     (let [json (sut/parse "{ \"key\": [\"value\"] }")]
-      (is (= ["value"] (get json "key"))))))
+      (is (= ["value"] (get json "key")))))
+  (testing "A json mapping mapped to a mixed list"
+    (let [json (sut/parse "{ \"key\": [\"value\", 42, true, null] }")]
+      (is (= ["value" 42 true nil] (get json "key")))))
+  (testing "A valid lsist cannot start with a comma"
+    (let [json (sut/parse "{ \"key\": [, \"value\", 42, true, null] }")]
+      (is (some? (:error json))))))
 
 (comment
   ;; This parses correctly
