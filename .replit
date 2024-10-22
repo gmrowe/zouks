@@ -1,8 +1,0 @@
-modules = ["clojure-1.11", "bash"]
-run = "./scripts/test"
-
-[nix]
-channel = "stable-24_05"
-
-[deployment]
-run = ["sh", "-c", "./scripts/test"]
