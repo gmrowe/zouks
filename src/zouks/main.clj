@@ -132,9 +132,9 @@
          (:token-type token))
         (let [parser-with-value (parse-value parser)]
           (recur (->
-                   parser-with-value
-                   (update :elements (fnil conj []) (:value parser-with-value))
-                   (dissoc :value))))
+                  parser-with-value
+                  (update :elements (fnil conj []) (:value parser-with-value))
+                  (dissoc :value))))
 
         :else (error (format "Unexpected token type `%s`"
                              (:token-typ token)))))))
@@ -171,8 +171,9 @@
         (reduce (fn [m [k v]] (assoc m k v)) {} (:mappings parser))
 
         (= tok-type :string) (recur (parse-kv parser))
+
         (and (seq (:mappings parser)) (= tok-type :comma))
-        (recur (update parser :tokens next))
+        (recur (parse-kv (expect-token-type parser :comma)))
 
         :else (let [unexpected-token (:value (first (:tokens parser)))]
                 (error (format "Unexpected token: `%s`" unexpected-token)))))))
