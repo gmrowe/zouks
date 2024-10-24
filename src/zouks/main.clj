@@ -118,16 +118,17 @@
 
 (defn parse-list
   [parser]
-  (loop [parser (expect-token-type parser :left-square-bracket)]
+  (loop [parser (expect-token-type parser :left-square-bracket)
+         elements []]
     (let [token (first (:tokens parser))]
       (cond
         (= :right-square-bracket (:token-type token))
         (-> parser
             (expect-token-type :right-square-bracket)
-            (assoc :value (vec (:elements parser))))
+            (assoc :value (vec elements)))
 
         (and (seq (:elements parser)) (= :comma (:token-type token)))
-        (recur (update parser :tokens next))
+        (recur (update parser :tokens next) elements)
 
         (#{:boolean :number :null :string :left-square-bracket}
          (:token-type token))
@@ -135,10 +136,11 @@
           (recur (->
                   parser-with-value
                   (update :elements (fnil conj []) (:value parser-with-value))
-                  (dissoc :value))))
+                  (dissoc :value))
+                 (conj elements (:value parser-with-value))))
 
         :else (error (format "Unexpected token type `%s`"
-                             (:token-typ token))
+                             (:token-type token))
                      parser)))))
 
 (defn parse-value

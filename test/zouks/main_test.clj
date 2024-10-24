@@ -146,9 +146,12 @@
   (testing "A json mapping mapped to a mixed list"
     (let [json (sut/parse "{ \"key\": [\"value\", 42, true, null] }")]
       (is (= ["value" 42 true nil] (get json "key")))))
-  #_(testing "A json mapping mapped to a mixed list"
-    (let [json (sut/parse "{ \"key\": [[42]] }")]
-      (is (= [[42]] (get json "key"))))))
+  (testing "A json mapping mapped to a list with a nested list"
+    (let [json (sut/parse "{ \"key\": [[42], 69] }")]
+      (is (= [[42] 69] (get json "key")))))
+  (testing "A json mapping mapped to a deeply nested list"
+           (let [json (sut/parse "{ \"key\": [[[[42]]], 69] }")]
+             (is (= [[[[42]]] 69] (get json "key"))))))
 
 (comment
   ;; This parses correctly
