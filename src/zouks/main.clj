@@ -42,6 +42,29 @@
    \[ (make-token :left-square-bracket "[")
    \] (make-token :right-square-bracket "]")})
 
+(def keyword-tokens
+  {"true" (make-token :boolean true)
+   "false" (make-token :boolean false)
+   "null" (make-token :null nil)})
+
+(defn tokenize-as-keyword
+  [{:keys [index chars]}]
+  (str/join
+   (take-while #(and (not (Character/isWhitespace %))
+                     (not (single-character-tokens %)))
+               (subvec chars index))))
+
+(defn starts-with-keyword?
+  [data]
+  (contains? keyword-tokens (tokenize-as-keyword data)))
+
+(defn lex-keyword
+  [data]
+  (let [kw (tokenize-as-keyword data)]
+    (-> data
+        (update :tokens conj (keyword-tokens kw))
+        (update :index + (count kw)))))
+
 (defn lex-token
   [data]
   ;; TODO: do we really need indexed based parsing or should we
@@ -56,31 +79,11 @@
               (update :index inc))
 
           (= ch \") (lex-string data)
-          (= ch \t)
-          (let [expected "true"]
-            (when (= expected
-                     (str/join (subvec chars index (+ index (count expected)))))
-              (-> data
-                  (update :tokens conj (make-token :boolean true))
-                  (update :index + (count expected)))))
-
-          (= ch \f)
-          (let [expected "false"]
-            (when (= expected
-                     (str/join (subvec chars index (+ index (count expected)))))
-              (-> data
-                  (update :tokens conj (make-token :boolean false))
-                  (update :index + (count expected)))))
-
-          (= ch \n)
-          (let [expected "null"]
-            (when (= expected
-                     (str/join (subvec chars index (+ index (count expected)))))
-              (-> data
-                  (update :tokens conj (make-token :null nil))
-                  (update :index + (count expected)))))
 
           (Character/isDigit ch) (lex-number data)
+
+          (starts-with-keyword? data) (lex-keyword data)
+
           :else (error (format "Unexpected token `%s` at index: %s"
                                (nth chars index)
                                index)
