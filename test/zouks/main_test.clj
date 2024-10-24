@@ -150,8 +150,8 @@
     (let [json (sut/parse "{ \"key\": [[42], 69] }")]
       (is (= [[42] 69] (get json "key")))))
   (testing "A json mapping mapped to a deeply nested list"
-           (let [json (sut/parse "{ \"key\": [[[[42]]], 69] }")]
-             (is (= [[[[42]]] 69] (get json "key"))))))
+    (let [json (sut/parse "{ \"key\": [[[[42]]], 69] }")]
+      (is (= [[[[42]]] 69] (get json "key"))))))
 
 (comment
   ;; This parses correctly
