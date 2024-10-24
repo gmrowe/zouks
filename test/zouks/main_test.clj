@@ -1,7 +1,6 @@
 (ns zouks.main-test
   (:require
    [clojure.test :refer [deftest is testing]]
-   [clojure.string :as str]
    [zouks.main :as sut]))
 
 ;; TODOs
@@ -34,8 +33,6 @@
 
 (deftest lexer-test
   (testing "A lexer should"
-    (testing "generate EOF token for empty string"
-      (is-first-lexeme :eof ""))
     (testing
      "generate an :left-brace token when \\{ is encountered"
       (is-first-lexeme :left-brace "{"))
@@ -43,21 +40,21 @@
      "generate a :right-brace token when \\} is encountered"
       (is-first-lexeme :right-brace "}"))
     (testing "generate a sequence of tokens"
-      (has-token-types [:left-brace :right-brace :eof] "{}"))
+      (has-token-types [:left-brace :right-brace] "{}"))
     (testing "ignore whitespace"
-      (has-token-types [:left-brace :right-brace :eof] "{     }"))
+      (has-token-types [:left-brace :right-brace] "{     }"))
     (testing "generate a string token when a string is encountered"
       (is (= {:token-type :string :value "This is a string"}
              (first (sut/lex "\"This is a string\"")))))
     (testing "generate a :colon token when `:` is encountered"
       (is-first-lexeme :colon ":"))
     (testing "be able to lex a key value pair"
-      (has-token-types [:left-brace :string :colon :string :right-brace :eof]
+      (has-token-types [:left-brace :string :colon :string :right-brace]
                        "{\"key\": \"value\"}"))
     (testing "be able to handle multiple key value pairs"
       (has-token-types
        [:left-brace :string :colon :string :comma :string :colon
-        :string :right-brace :eof]
+        :string :right-brace]
        "{
           \"key\": \"value\",
           \"key2\": \"value2\"

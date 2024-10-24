@@ -70,7 +70,7 @@
   ;; TODO: do we really need indexed based parsing or should we
   ;;       move to more list based parsing?
   (let [{:keys [index chars] :as data} (skip-whitespace data)]
-    (if (< index (count chars))
+    (when (< index (count chars))
       (let [ch (nth chars index)]
         (cond
           (some? (single-character-tokens ch))
@@ -87,17 +87,14 @@
           :else (error (format "Unexpected token `%s` at index: %s"
                                (nth chars index)
                                index)
-                       data)))
-      (-> data
-          (update :tokens conj (make-token :eof nil))
-          (assoc :done? true)))))
+                       data))))))
 
 (defn lex
   [s]
   (->> {:index 0 :tokens [] :chars (vec (seq s))}
        (iterate lex-token)
-       (drop-while #(not (:done? %)))
-       first
+       (take-while some?)
+       last
        :tokens))
 
 (defn expect-token-type
