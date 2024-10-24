@@ -66,12 +66,12 @@
       (is (= {:token-type :boolean :value true}
              (first (sut/lex "true")))))
     (testing "generate an error if true is not followed by a non-character"
-      (is (some? (:error (sut/lex "truely")))))
+      (is (thrown? Exception (sut/lex "truely"))))
     (testing "generate a boolean token when `false` is encountered"
       (is (= {:token-type :boolean :value false}
              (first (sut/lex "false")))))
     (testing "generate an error if false is not followed by a non-character"
-      (is (some? (:error (sut/lex "falsey")))))
+      (is (thrown? Exception (sut/lex "falsey"))))
     (testing "generate a nil token if `null` is encountered"
       (is (= {:token-type :null :value nil}
              (first (sut/lex "null")))))
@@ -108,12 +108,11 @@
   (testing "A valid json mapping cannot start with a comma"
     (let
      [json
-      (sut/parse
-       "{ ,
-           \"key\": \"value\",
-           \"key2\": \"value2\"
-         }")]
-      (is (some? (:error json)))))
+      "{ ,
+        \"key\": \"value\",
+        \"key2\": \"value2\"
+       }"]
+      (is (thrown? Exception (sut/parse json)))))
   (testing "A json mapping mapped to a true value"
     (let [json (sut/parse "{ \"key\": true }")]
       (is (true? (get json "key")))))
@@ -128,7 +127,7 @@
     (let [json (sut/parse "{ \"key\": 42 }")]
       (is (= 42 (get json "key")))))
   (testing "A lexer error results in a parser error"
-    (is (str/includes? (:error (sut/parse "False")) "Unexpected token")))
+    (is (thrown? Exception (sut/parse "False"))))
   (testing "A json mapping mapped to an empty list"
     (let [json (sut/parse "{ \"key\": [] }")]
       (is (= [] (get json "key")))))
@@ -147,9 +146,9 @@
   (testing "A json mapping mapped to a mixed list"
     (let [json (sut/parse "{ \"key\": [\"value\", 42, true, null] }")]
       (is (= ["value" 42 true nil] (get json "key")))))
-  (testing "A valid lsist cannot start with a comma"
-    (let [json (sut/parse "{ \"key\": [, \"value\", 42, true, null] }")]
-      (is (some? (:error json))))))
+  #_(testing "A json mapping mapped to a mixed list"
+    (let [json (sut/parse "{ \"key\": [[42]] }")]
+      (is (= [[42]] (get json "key"))))))
 
 (comment
   ;; This parses correctly
@@ -192,7 +191,9 @@
   (testing "A key value pair without a value is not valid json"
     (is (not (sut/valid-json? "{\"key\":}"))))
   (testing "A comma not followed by another key/value pair is not valid json"
-    (is (not (sut/valid-json? "{\"key\": \"value\",}")))))
+    (is (not (sut/valid-json? "{\"key\": \"value\",}"))))
+  (testing "A valid list cannot start with a comma"
+    (is (not (sut/valid-json? "{ \"key\": [, \"value\", 42, true, null] }")))))
 
 (deftest exit-code-test
   (testing "A valid json string should exit with code 0"

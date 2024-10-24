@@ -23,7 +23,8 @@
         (update :tokens conj token)
         (update :index + (count digits)))))
 
-(defn error [msg] {:error msg})
+(defn error [msg parser]
+  (throw (ex-info msg parser)))
 
 (defn skip-whitespace
   [{:keys [index chars] :as data}]
@@ -82,18 +83,19 @@
           (Character/isDigit ch) (lex-number data)
           :else (error (format "Unexpected token `%s` at index: %s"
                                (nth chars index)
-                               index))))
+                               index)
+                       data)))
       (-> data
           (update :tokens conj (make-token :eof nil))
           (assoc :done? true)))))
 
 (defn lex
   [s]
-  (let [result (->> {:index 0 :tokens [] :chars (vec (seq s))}
-                    (iterate lex-token)
-                    (drop-while #(and (not (:done? %)) (not (:error %))))
-                    first)]
-    (if (:error result) result (:tokens result))))
+  (->> {:index 0 :tokens [] :chars (vec (seq s))}
+       (iterate lex-token)
+       (drop-while #(not (:done? %)))
+       first
+       :tokens))
 
 (defn expect-token-type
   [parser expected-token-type]
@@ -102,16 +104,15 @@
       (update parser :tokens next)
       (error (format "Expected token-type `%s`, but got `%s`"
                      expect-token-type
-                     token-type)))))
+                     token-type)
+             parser))))
 
 (defn parse-key
   [parser]
   (let [token (first (:tokens parser))]
-    (if (= :string (:token-type token))
-      (-> parser
-          (update :tokens next)
-          (assoc :key (:value token)))
-      (error "Expected string - key must be a string"))))
+    (-> parser
+        (expect-token-type :string)
+        (assoc :key (:value token)))))
 
 (declare parse-value)
 
@@ -137,7 +138,8 @@
                   (dissoc :value))))
 
         :else (error (format "Unexpected token type `%s`"
-                             (:token-typ token)))))))
+                             (:token-typ token))
+                     parser)))))
 
 (defn parse-value
   [parser]
@@ -149,7 +151,8 @@
           (assoc :value (:value token)))
 
       (= :left-square-bracket (:token-type token)) (parse-list parser)
-      :else (error (format "Unsupported value type: %s" (:token-type token))))))
+      :else (error (format "Unsupported value type: %s" (:token-type token))
+                   parser))))
 
 (defn parse-kv
   [parser]
@@ -176,7 +179,8 @@
         (recur (parse-kv (expect-token-type parser :comma)))
 
         :else (let [unexpected-token (:value (first (:tokens parser)))]
-                (error (format "Unexpected token: `%s`" unexpected-token)))))))
+                (error (format "Unexpected token: `%s`" unexpected-token)
+                       parser))))))
 
 (defn parse
   [s]
@@ -185,7 +189,11 @@
       (select-keys tokens [:error])
       (parse-object {:tokens tokens :mappings []}))))
 
-(defn valid-json? [s] (not (:error (parse s))))
+(defn valid-json? [s]
+  (try
+    (parse s)
+    true
+    (catch Exception e false)))
 
 (defn parse-and-exit [s] (if (valid-json? s) {:exit 0} {:exit 1}))
 
